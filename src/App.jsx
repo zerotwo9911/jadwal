@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Book, Trash2, Edit3, Save, Calendar, Clock, User, CheckCircle, AlertCircle, ChevronRight, Sparkles, Lock, LogIn, Share2, MessageCircle, Copy, ExternalLink } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+import { Bell, Book, Edit3, Save, Calendar, User, CheckCircle, AlertCircle, Sparkles, Lock, LogIn, Share2, MessageCircle, Copy } from 'lucide-react';
 
-// Data awal (Default)
+// --- KONFIGURASI SUPABASE KAMU ---
+const SUPABASE_URL = 'https://czgmoblnjmlcxpni jnpi.supabase.co'; 
+const SUPABASE_KEY = 'Sb_publishable_HY7yoPZvIqM6FBMPkCo_TA_5bUeIE9K'; // Ini Anon Key kamu
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const defaultData = {
   Senin: { subjects: ['Upacara', 'Matematika', 'B. Indonesia', 'Fisika'], picket: ['Ahmad', 'Budi', 'Citra'], homework: '' },
   Selasa: { subjects: ['Olahraga', 'B. Inggris', 'Kimia', 'Sejarah'], picket: ['Dedi', 'Eka', 'Fani'], homework: '' },
@@ -15,234 +20,180 @@ const defaultData = {
 const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 export default function App() {
-  const [scheduleData, setScheduleData] = useState(() => {
-    const saved = localStorage.getItem('classSchedule');
-    return saved ? JSON.parse(saved) : defaultData;
-  });
-  
-  const [view, setView] = useState('home'); // home, admin
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Status login admin
-  const [currentDayIndex, setCurrentDayIndex] = useState(new Date().getDay());
-  const [showNotification, setShowNotification] = useState(false);
-  const [notificationMsg, setNotificationMsg] = useState('');
+  const [scheduleData, setScheduleData] = useState(defaultData);
+  const [view, setView] = useState('home');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentDayIndex] = useState(new Date().getDay());
+  const [loading, setLoading] = useState(true);
 
-  // Simpan ke local storage
+  // Ambil data dari Supabase saat aplikasi dibuka
   useEffect(() => {
-    localStorage.setItem('classSchedule', JSON.stringify(scheduleData));
-  }, [scheduleData]);
-
-  // Logic Notifikasi
-  useEffect(() => {
-    const checkTime = () => {
-      const now = new Date();
-      if (now.getHours() === 18 && now.getMinutes() === 0) {
-        triggerNotification();
+    const fetchData = async () => {
+      try {
+        const { data, error } = await supabase.from('Jadwal_kelas').select('*');
+        if (data && data.length > 0) {
+          const merged = { ...defaultData };
+          data.forEach(item => {
+            merged[item.hari] = item.data;
+          });
+          setScheduleData(merged);
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading(false);
       }
     };
-
-    if (Notification.permission !== "granted") Notification.requestPermission();
-    const interval = setInterval(checkTime, 60000);
-    return () => clearInterval(interval);
-  }, [scheduleData]);
-
-  const triggerNotification = () => {
-    const tomorrowIndex = (new Date().getDay() + 1) % 7;
-    const tomorrowName = days[tomorrowIndex];
-    const tomorrowData = scheduleData[tomorrowName];
-
-    const message = `Besok (${tomorrowName}): ${tomorrowData.subjects.slice(0, 2).join(', ')}... Piket: ${tomorrowData.picket.join(', ')}`;
-    
-    if (Notification.permission === "granted") {
-      new Notification("Pengingat Jadwal Besok! 📚", { body: message });
-    }
-    setNotificationMsg(message);
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 8000);
-  };
+    fetchData();
+  }, []);
 
   const handleAdminClick = () => {
-    if (view === 'home') {
-      setView('admin');
-    } else {
-      setView('home');
-      setIsAuthenticated(false); // Logout otomatis saat keluar admin
-    }
+    if (view === 'home') setView('admin');
+    else { setView('home'); setIsAuthenticated(false); }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-indigo-50">
+        <div className="animate-bounce bg-indigo-600 p-4 rounded-full text-white shadow-xl">
+          <Calendar size={32} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 text-slate-800 font-sans pb-24 selection:bg-indigo-100">
-      
-      {/* Modern Floating Header */}
       <nav className="fixed top-0 inset-x-0 z-30 bg-white/70 backdrop-blur-xl border-b border-white/20 shadow-sm">
         <div className="max-w-lg mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-indigo-200 shadow-lg">
-              <Calendar size={20} />
-            </div>
+            <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg"><Calendar size={20} /></div>
             <div>
-              <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 leading-tight">
-                Kelas Kita
-              </h1>
-              <p className="text-[10px] text-slate-500 font-medium tracking-wide uppercase">Daily Schedule</p>
+              <h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">Kelas Kita</h1>
+              <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Cloud Synchronized</p>
             </div>
           </div>
-          <button 
-            onClick={handleAdminClick}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 shadow-md ${
-              view === 'admin' 
-                ? 'bg-slate-800 text-white shadow-slate-300' 
-                : 'bg-white text-indigo-600 border border-indigo-100 hover:shadow-indigo-100'
-            }`}
-          >
+          <button onClick={handleAdminClick} className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 shadow-md ${view === 'admin' ? 'bg-slate-800 text-white' : 'bg-white text-indigo-600 border border-indigo-100'}`}>
             {view === 'home' ? 'Edit Jadwal' : 'Tutup Admin'}
           </button>
         </div>
       </nav>
 
-      {/* In-App Notification Toast */}
-      {showNotification && (
-        <div className="fixed top-24 left-4 right-4 z-50 animate-in slide-in-from-top-4 fade-in duration-500">
-          <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border-l-4 border-yellow-400 flex gap-3">
-            <div className="bg-yellow-100 p-2 rounded-full h-fit text-yellow-600"><Bell size={20}/></div>
-            <div>
-              <h4 className="font-bold text-slate-800">Pengingat Besok!</h4>
-              <p className="text-sm text-slate-600 mt-1">{notificationMsg}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <main className="max-w-lg mx-auto px-4 pt-24 space-y-6">
-        
         {view === 'home' && (
           <>
-            {/* Header Greeting */}
             <div className="flex justify-between items-end mb-2">
-              <div>
-                <p className="text-slate-500 text-sm">Selamat Datang,</p>
-                <h2 className="text-2xl font-bold text-slate-800">Jadwal Sekolah</h2>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-semibold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg">
-                  {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short'})}
-                </p>
-              </div>
+              <div><p className="text-slate-500 text-sm">Selamat Datang,</p><h2 className="text-2xl font-bold text-slate-800">Jadwal Sekolah</h2></div>
+              <p className="text-xs font-semibold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg">
+                {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short'})}
+              </p>
             </div>
-
-            {/* Kartu Hari Ini (Highlight) */}
-            <DayCard 
-              title="Hari Ini" 
-              dayName={days[currentDayIndex]} 
-              data={scheduleData[days[currentDayIndex]]} 
-              isToday={true}
-            />
-
-            {/* Divider text */}
-            <div className="flex items-center gap-4 py-2">
-               <div className="h-px bg-slate-200 flex-1"></div>
-               <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Selanjutnya</span>
-               <div className="h-px bg-slate-200 flex-1"></div>
-            </div>
-
-            {/* Kartu Besok */}
-            <DayCard 
-              title="Besok" 
-              dayName={days[(currentDayIndex + 1) % 7]} 
-              data={scheduleData[days[(currentDayIndex + 1) % 7]]} 
-              isToday={false}
-            />
-
-             <div className="text-center pt-8 pb-4">
-              <button 
-                onClick={triggerNotification}
-                className="text-slate-400 text-xs hover:text-indigo-500 transition-colors flex items-center justify-center gap-1 mx-auto"
-              >
-                <Bell size={12} /> Simulasi Notifikasi (Test)
-              </button>
-            </div>
+            <DayCard title="Hari Ini" dayName={days[currentDayIndex]} data={scheduleData[days[currentDayIndex]]} isToday={true} />
+            <div className="flex items-center gap-4 py-2"><div className="h-px bg-slate-200 flex-1"></div><span className="text-xs text-slate-400 font-medium uppercase tracking-widest">Selanjutnya</span><div className="h-px bg-slate-200 flex-1"></div></div>
+            <DayCard title="Besok" dayName={days[(currentDayIndex + 1) % 7]} data={scheduleData[days[(currentDayIndex + 1) % 7]]} isToday={false} />
           </>
         )}
 
         {view === 'admin' && (
-          isAuthenticated ? (
-            <AdminPanel 
-              data={scheduleData} 
-              setData={setScheduleData} 
-              days={days}
-            />
-          ) : (
-            <AdminLogin onLogin={() => setIsAuthenticated(true)} />
-          )
+          isAuthenticated ? 
+          <AdminPanel data={scheduleData} setData={setScheduleData} days={days} /> : 
+          <AdminLogin onLogin={() => setIsAuthenticated(true)} />
         )}
-
       </main>
     </div>
   );
 }
 
-// Component Login Admin
-const AdminLogin = ({ onLogin }) => {
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState(false);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (password === 'TKJ2025') {
-      onLogin();
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
-    }
-  };
-
+// --- KOMPONEN KARTU ---
+const DayCard = ({ title, dayName, data, isToday }) => {
+  if (!data) return null;
   return (
-    <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white p-8 text-center animate-in fade-in zoom-in duration-300">
-      <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-600">
-        <Lock size={32} />
+    <div className={`relative rounded-3xl p-6 transition-all duration-500 hover:scale-[1.02] ${isToday ? "bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-xl shadow-indigo-200" : "bg-white/80 backdrop-blur-xl text-slate-600 border border-white shadow-lg"}`}>
+      <div className="flex justify-between items-start mb-6">
+        <div><div className={`text-xs font-bold uppercase tracking-wider mb-1 ${isToday ? 'text-indigo-200' : 'text-indigo-500'}`}>{title}</div><h2 className="text-3xl font-bold tracking-tight">{dayName}</h2></div>
+        {isToday && <Sparkles className="text-yellow-300 opacity-80" />}
       </div>
-      <h2 className="text-xl font-bold text-slate-800 mb-2">Akses Admin</h2>
-      <p className="text-slate-500 text-sm mb-6">Masukkan password untuk mengedit jadwal.</p>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input 
-          type="password" 
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password..."
-          className={`w-full p-4 bg-white border-2 rounded-xl text-center font-bold tracking-widest focus:outline-none transition-all ${error ? 'border-red-400 bg-red-50 text-red-500 placeholder:text-red-300' : 'border-slate-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100'}`}
-          autoFocus
-        />
-        <button 
-          type="submit"
-          className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2"
-        >
-          <LogIn size={18} /> Masuk
-        </button>
-      </form>
+      <div className="mb-6">
+        <div className={`flex items-center gap-2 mb-3 text-sm font-semibold ${isToday ? 'text-indigo-100' : 'text-slate-400'}`}><Book size={16} /> Mata Pelajaran</div>
+        <div className="flex flex-wrap gap-2">
+          {data.subjects.map((sub, i) => (
+            <span key={i} className={`px-4 py-1.5 text-sm rounded-full font-medium ${isToday ? "bg-white/20 text-white border border-white/20" : "bg-indigo-50 text-indigo-600 border border-indigo-100"}`}>{sub}</span>
+          ))}
+        </div>
+      </div>
+      <div className={`grid grid-cols-2 gap-4 pt-4 border-t ${isToday ? 'border-white/20' : 'border-slate-100'}`}>
+        <div><div className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide mb-1 ${isToday ? 'text-indigo-200' : 'text-slate-400'}`}><User size={14} /> Piket</div><div className="text-sm font-medium">{data.picket.join(', ') || '-'}</div></div>
+        <div className={`rounded-xl p-3 ${isToday ? 'bg-white/10' : 'bg-red-50'}`}>
+          <div className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide mb-1 ${isToday ? 'text-red-200' : 'text-red-500'}`}><AlertCircle size={14} /> Tugas</div>
+          <p className="text-xs font-medium leading-relaxed">{data.homework || "Tidak ada tugas."}</p>
+        </div>
+      </div>
     </div>
   );
 };
 
-// Modern Card Component
-const DayCard = ({ title, dayName, data, isToday }) => {
-  if (!data) return null;
+// --- PANEL ADMIN ---
+const AdminPanel = ({ data, setData, days }) => {
+  const [selectedDay, setSelectedDay] = useState('Senin');
+  const [formData, setFormData] = useState(data['Senin']);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Style khusus untuk "Hari Ini" vs "Besok"
-  const cardStyle = isToday 
-    ? "bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-xl shadow-indigo-200 border-none" 
-    : "bg-white/80 backdrop-blur-xl text-slate-600 shadow-lg shadow-slate-100 border border-white";
+  useEffect(() => { setFormData(data[selectedDay]); }, [selectedDay, data]);
 
-  const subPillStyle = isToday
-    ? "bg-white/20 text-white border border-white/20"
-    : "bg-indigo-50 text-indigo-600 border border-indigo-100";
+  const handleSave = async () => {
+    setIsSaving(true);
+    const { error } = await supabase
+      .from('Jadwal_kelas')
+      .upsert({ hari: selectedDay, data: formData }, { onConflict: 'hari' });
+
+    if (!error) {
+      setData(prev => ({ ...prev, [selectedDay]: formData }));
+      alert(`Jadwal hari ${selectedDay} berhasil diperbarui untuk seluruh kelas!`);
+    } else {
+      alert("Gagal menyimpan: " + error.message);
+    }
+    setIsSaving(false);
+  };
 
   return (
-    <div className={`relative rounded-3xl p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02] ${cardStyle}`}>
-      {/* Background decoration for Today card */}
-      {isToday && (
-        <>
-          <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-          <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 bg-purple-500/30 rounded-full blur-xl"></div>
+    <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white space-y-6 animate-in slide-in-from-bottom-4">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        {days.map(day => (
+          <button key={day} onClick={() => setSelectedDay(day)} className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-300 ${selectedDay === day ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-500'}`}>{day}</button>
+        ))}
+      </div>
+      <div className="space-y-4">
+        <div><label className="text-xs font-bold text-slate-400 uppercase ml-1">Mata Pelajaran (pisahkan koma)</label>
+        <textarea className="w-full p-4 mt-1 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 font-medium" rows="3" value={formData.subjects.join(', ')} onChange={(e) => setFormData({...formData, subjects: e.target.value.split(',').map(s=>s.trim())})} /></div>
+        <div><label className="text-xs font-bold text-slate-400 uppercase ml-1">Petugas Piket (pisahkan koma)</label>
+        <input className="w-full p-4 mt-1 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 font-medium" type="text" value={formData.picket.join(', ')} onChange={(e) => setFormData({...formData, picket: e.target.value.split(',').map(s=>s.trim())})} /></div>
+        <div><label className="text-xs font-bold text-slate-400 uppercase ml-1">Tugas / PR</label>
+        <input className="w-full p-4 mt-1 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 font-medium" type="text" value={formData.homework} onChange={(e) => setFormData({...formData, homework: e.target.value})} /></div>
+      </div>
+      <button onClick={handleSave} disabled={isSaving} className={`w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 transition-all shadow-lg ${isSaving ? 'bg-green-500 shadow-green-200' : 'bg-slate-900 active:scale-95 shadow-slate-300'}`}>
+        {isSaving ? "Sinkronisasi Cloud..." : <><Save size={20}/> Simpan & Update Publik</>}
+      </button>
+    </div>
+  );
+};
+
+// --- LOGIN ADMIN ---
+const AdminLogin = ({ onLogin }) => {
+  const [password, setPassword] = useState('');
+  const handleSubmit = (e) => { e.preventDefault(); if (password === 'TKJ2025') onLogin(); else alert('Password Salah!'); };
+  return (
+    <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl text-center animate-in zoom-in">
+      <div className="bg-slate-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-600"><Lock size={32} /></div>
+      <h2 className="text-xl font-bold mb-2 text-slate-800">Akses Admin Pusat</h2>
+      <p className="text-slate-500 text-sm mb-6">Gunakan password untuk mengubah jadwal kelas.</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password..." className="w-full p-4 bg-slate-50 border-none rounded-xl text-center font-bold tracking-widest focus:ring-2 focus:ring-indigo-500" autoFocus />
+        <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 hover:bg-slate-800 transition-all shadow-lg"><LogIn size={18} /> Masuk</button>
+      </form>
+    </div>
+  );
+};
+           <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 bg-purple-500/30 rounded-full blur-xl"></div>
         </>
       )}
 
@@ -504,4 +455,5 @@ const InputGroup = ({ label, desc, icon, value, onChange, placeholder, isArea, c
       )}
     </div>
   </div>
+
 );
