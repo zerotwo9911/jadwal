@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Bell, Book, Save, Calendar, User, CheckCircle, AlertCircle, Sparkles, Lock, LogIn, Share2, Copy, Edit3 } from 'lucide-react';
+import { Bell, Book, Save, Calendar, User, Sparkles, Lock, LogIn, Share2, Copy, Edit3, AlertCircle } from 'lucide-react';
 
 // --- KONFIGURASI SUPABASE ---
 const SUPABASE_URL = 'https://czgmoblnjmlcxpnijnpi.supabase.co'; 
@@ -15,7 +15,40 @@ export default function App() {
   const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Ambil data dari Cloud Supabase
+  // --- LOGIKA NOTIFIKASI JAM 6 SORE ---
+  useEffect(() => {
+    // Meminta izin notifikasi saat aplikasi dibuka
+    if ("Notification" in window) {
+      if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+        Notification.requestPermission();
+      }
+    }
+
+    const checkTimeForNotif = () => {
+      const now = new Date();
+      // Cek apakah jam 18:00 (6 Malam)
+      if (now.getHours() === 18 && now.getMinutes() === 0) {
+        sendPushNotification();
+      }
+    };
+
+    const interval = setInterval(checkTimeForNotif, 60000); // Cek tiap menit
+    return () => clearInterval(interval);
+  }, [scheduleData]);
+
+  const sendPushNotification = () => {
+    const tomorrowIndex = (new Date().getDay() + 1) % 7;
+    const tomorrowName = days[tomorrowIndex];
+    const dataBesok = scheduleData[tomorrowName];
+
+    if (dataBesok && Notification.permission === "granted") {
+      new Notification(`Jadwal Besok: ${tomorrowName} 📚`, {
+        body: `Pelajaran: ${dataBesok.subjects?.join(', ') || 'Libur'}. Jangan lupa siapkan buku ya!`,
+        icon: 'https://cdn-icons-png.flaticon.com/512/2693/2693507.png'
+      });
+    }
+  };
+
   const fetchData = async () => {
     try {
       const { data, error } = await supabase.from('Jadwal').select('*');
@@ -30,16 +63,16 @@ export default function App() {
 
   useEffect(() => { fetchData(); }, []);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-indigo-50 font-bold text-indigo-600">Menghubungkan ke Cloud...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-indigo-50 font-bold text-indigo-600">Menyinkronkan Cloud...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-24 font-sans selection:bg-indigo-100">
-      <nav className="fixed top-0 inset-x-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex justify-between items-center shadow-sm">
+      <nav className="fixed top-0 inset-x-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg"><Calendar size={20} /></div>
-          <div><h1 className="text-lg font-bold">Kelas Kita</h1><p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Cloud Sync</p></div>
+          <h1 className="text-lg font-bold">Kelas Kita</h1>
         </div>
-        <button onClick={() => setView(view === 'home' ? 'admin' : 'home')} className="text-xs font-bold px-4 py-2 bg-indigo-600 text-white rounded-full shadow-md active:scale-95 transition-all">
+        <button onClick={() => setView(view === 'home' ? 'admin' : 'home')} className="text-xs font-bold px-4 py-2 bg-indigo-600 text-white rounded-full shadow-md">
           {view === 'home' ? 'Edit Jadwal' : 'Tutup'}
         </button>
       </nav>
@@ -47,13 +80,15 @@ export default function App() {
       <main className="max-w-lg mx-auto px-4 pt-24 space-y-6">
         {view === 'home' ? (
           <div className="space-y-6">
-            <div className="flex justify-between items-end mb-2">
-              <div><p className="text-slate-500 text-sm font-medium">Selamat Datang,</p><h2 className="text-2xl font-bold text-slate-800 tracking-tight">Jadwal Sekolah</h2></div>
-              <p className="text-xs font-bold text-indigo-500 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
-            </div>
             <DayView title="Hari Ini" dayName={days[new Date().getDay()]} data={scheduleData[days[new Date().getDay()]]} isToday={true} />
-            <div className="flex items-center gap-4 py-2"><div className="h-px bg-slate-200 flex-1"></div><span className="text-xs text-slate-400 font-bold uppercase tracking-widest">Besok</span><div className="h-px bg-slate-200 flex-1"></div></div>
             <DayView title="Besok" dayName={days[(new Date().getDay() + 1) % 7]} data={scheduleData[days[(new Date().getDay() + 1) % 7]]} isToday={false} />
+            
+            {/* Tombol Tes Notif agar user bisa coba langsung */}
+            <div className="text-center pt-4">
+               <button onClick={sendPushNotification} className="text-[10px] text-slate-400 font-bold flex items-center justify-center gap-1 mx-auto hover:text-indigo-600 transition-colors">
+                  <Bell size={12} /> Klik untuk Tes Notifikasi
+               </button>
+            </div>
           </div>
         ) : (
           isAuth ? <AdminPanel data={scheduleData} onSaveSuccess={fetchData} /> : <AdminLogin onLogin={() => setIsAuth(true)} />
@@ -64,15 +99,15 @@ export default function App() {
 }
 
 function DayView({ title, dayName, data, isToday }) {
-  if (!data) return <div className="p-8 bg-white rounded-3xl border border-dashed border-slate-200 text-center text-slate-400 font-medium italic">Jadwal {dayName} belum diisi admin.</div>;
+  if (!data) return <div className="p-8 bg-white rounded-3xl border border-dashed border-slate-200 text-center text-slate-400 italic font-medium">Jadwal {dayName} belum diisi.</div>;
   return (
-    <div className={`p-6 rounded-3xl shadow-xl transition-all duration-500 ${isToday ? 'bg-indigo-600 text-white shadow-indigo-200' : 'bg-white border border-slate-100 shadow-slate-100'}`}>
+    <div className={`p-6 rounded-3xl shadow-xl transition-all duration-500 ${isToday ? 'bg-indigo-600 text-white shadow-indigo-200' : 'bg-white border border-slate-100'}`}>
       <div className="flex justify-between items-start mb-4">
         <div><p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isToday ? 'text-indigo-200' : 'text-indigo-500'}`}>{title}</p><h2 className="text-3xl font-black">{dayName}</h2></div>
         {isToday && <Sparkles className="text-yellow-300 animate-pulse" />}
       </div>
       <div className="flex flex-wrap gap-2 mb-6">
-        {data.subjects?.map((s, i) => <span key={i} className={`px-4 py-1.5 rounded-full text-xs font-black shadow-sm ${isToday ? 'bg-white/20' : 'bg-indigo-50 text-indigo-600'}`}>{s}</span>)}
+        {data.subjects?.map((s, i) => <span key={i} className={`px-4 py-1.5 rounded-full text-xs font-black ${isToday ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600'}`}>{s}</span>)}
       </div>
       <div className={`pt-4 border-t ${isToday ? 'border-white/10' : 'border-slate-100'} flex justify-between items-center`}>
         <div className="flex items-center gap-2"><User size={14} className="opacity-50" /><span className="text-[11px] font-bold uppercase opacity-70">Piket: {data.picket?.join(', ') || '-'}</span></div>
@@ -87,7 +122,6 @@ function AdminPanel({ data, onSaveSuccess }) {
   const [form, setForm] = useState({ subjects: [], picket: [], homework: '' });
   const [saving, setSaving] = useState(false);
   const [waNote, setWaNote] = useState('');
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (data[day]) setForm(data[day]);
@@ -97,8 +131,8 @@ function AdminPanel({ data, onSaveSuccess }) {
   const handleUpdate = async () => {
     setSaving(true);
     const { error } = await supabase.from('Jadwal').upsert({ hari: day, data: form }, { onConflict: 'hari' });
-    if (!error) { alert('Sinkronisasi Cloud Berhasil!'); onSaveSuccess(); }
-    else { alert('Error: ' + error.message); }
+    if (!error) { alert('Berhasil Update Cloud!'); onSaveSuccess(); }
+    else { alert('Gagal: ' + error.message); }
     setSaving(false);
   };
 
@@ -109,27 +143,26 @@ function AdminPanel({ data, onSaveSuccess }) {
   };
 
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-2xl space-y-5 border border-slate-100">
-      <h2 className="font-black text-xl flex items-center gap-2 text-slate-800"><Edit3 className="text-indigo-600" /> Editor Cloud</h2>
+    <div className="bg-white p-6 rounded-3xl shadow-2xl space-y-4 border border-slate-100">
+      <h2 className="font-black text-xl text-slate-800">Editor Cloud</h2>
       <select value={day} onChange={(e) => setDay(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl font-bold border-none ring-2 ring-indigo-50 outline-none">
         {days.map(d => <option key={d} value={d}>{d}</option>)}
       </select>
       <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-medium text-sm" placeholder="Pelajaran (Koma)" value={form.subjects.join(', ')} onChange={e => setForm({...form, subjects: e.target.value.split(',').map(s=>s.trim())})} />
       <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-medium text-sm" placeholder="Piket (Koma)" value={form.picket.join(', ')} onChange={e => setForm({...form, picket: e.target.value.split(',').map(s=>s.trim())})} />
-      <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-medium text-sm" placeholder="Info Tugas / PR" value={form.homework} onChange={e => setForm({...form, homework: e.target.value})} />
-      <button onClick={handleUpdate} disabled={saving} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 transition-all active:scale-95">
-        {saving ? 'Sinkronisasi...' : 'SIMPAN KE SEMUA HP'}
+      <input className="w-full p-4 bg-slate-50 rounded-2xl outline-none font-medium text-sm" placeholder="Tugas / PR" value={form.homework} onChange={e => setForm({...form, homework: e.target.value})} />
+      <button onClick={handleUpdate} disabled={saving} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100">
+        {saving ? 'Sinkronisasi...' : 'SIMPAN KE CLOUD'}
       </button>
 
-      <div className="pt-6 border-t-2 border-slate-50 border-dashed">
-        <h3 className="font-bold text-slate-700 mb-3 flex items-center gap-2 text-sm"><Share2 className="text-green-600" size={18} /> WhatsApp Broadcast</h3>
-        <textarea className="w-full p-3 bg-slate-100 rounded-xl text-xs font-mono text-slate-500 mb-3" rows="5" readOnly value={generateWA()} />
-        <input className="w-full p-3 mb-3 bg-slate-50 border border-slate-200 rounded-xl text-xs" placeholder="Tambah pesan tambahan untuk grup WA..." value={waNote} onChange={e => setWaNote(e.target.value)} />
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => { navigator.clipboard.writeText(generateWA()); setCopied(true); setTimeout(()=>setCopied(false), 2000); }} className="p-3 bg-slate-200 text-slate-700 rounded-xl font-bold text-xs flex justify-center items-center gap-2">
-            {copied ? <CheckCircle size={14}/> : <Copy size={14}/>} {copied ? 'Disalin' : 'Salin Teks'}
+      <div className="pt-6 border-t border-slate-100">
+        <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2 text-sm"><Share2 size={16} /> WhatsApp Broadcast</h3>
+        <input className="w-full p-3 mb-2 bg-slate-50 rounded-xl text-xs" placeholder="Tambah catatan tambahan..." value={waNote} onChange={e => setWaNote(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => { navigator.clipboard.writeText(generateWA()); alert('Teks WA Disalin!'); }} className="p-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs flex justify-center items-center gap-2">
+            <Copy size={14}/> Salin Teks
           </button>
-          <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(generateWA())}`, '_blank')} className="p-3 bg-green-500 text-white rounded-xl font-bold text-xs flex justify-center items-center gap-2 shadow-lg shadow-green-100">
+          <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(generateWA())}`, '_blank')} className="p-3 bg-green-500 text-white rounded-xl font-bold text-xs flex justify-center items-center gap-2">
             <Share2 size={14}/> Kirim ke WA
           </button>
         </div>
@@ -141,13 +174,12 @@ function AdminPanel({ data, onSaveSuccess }) {
 function AdminLogin({ onLogin }) {
   const [p, setP] = useState('');
   return (
-    <div className="bg-white p-8 rounded-3xl shadow-2xl text-center space-y-4 border border-slate-100">
+    <div className="bg-white p-8 rounded-3xl shadow-2xl text-center space-y-4">
       <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto text-indigo-600 mb-2"><Lock size={32} /></div>
-      <h2 className="font-black text-xl text-slate-800 tracking-tight">Login Admin</h2>
-      <input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-black tracking-widest outline-none border-none focus:ring-2 focus:ring-indigo-100" placeholder="••••••••" autoFocus />
-      <button onClick={() => p === 'TKJ2025' ? onLogin() : alert('Salah!')} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black shadow-xl transition-all active:scale-95">MASUK ADMIN</button>
+      <h2 className="font-black text-xl text-slate-800">Login Admin</h2>
+      <input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full p-4 bg-slate-50 rounded-2xl text-center font-black tracking-widest outline-none focus:ring-2 focus:ring-indigo-100" placeholder="••••••••" autoFocus />
+      <button onClick={() => p === 'TKJ2025' ? onLogin() : alert('Password Salah!')} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black">MASUK ADMIN</button>
     </div>
   );
-      }
+               }
           
-
