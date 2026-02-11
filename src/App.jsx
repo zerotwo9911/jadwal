@@ -4,7 +4,7 @@ import { Bell, Book, Edit3, Save, Calendar, User, CheckCircle, AlertCircle, Spar
 
 // --- KONFIGURASI SUPABASE ---
 const SUPABASE_URL = 'https://czgmoblnjmlcxpnijnpi.supabase.co'; 
-const SUPABASE_KEY = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6Z21vYmxuam1sY3hwbmlqbnBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2ODI1NTQsImV4cCI6MjA4NjI1ODU1NH0.3WH69MWJmiFGMpACOpTLR2WQHE0iU6GGcBH9fDvpmL0'; 
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6Z21vYmxuam1sY3hwbmlqbnBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2ODI1NTQsImV4cCI6MjA4NjI1ODU1NH0.3WH69MWJmiFGMpACOpTLR2WQHE0iU6GGcBH9fDvpmL0'; 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const defaultData = {
@@ -171,5 +171,5 @@ function AdminLogin({ onLogin }) {
       </form>
     </div>
   );
-                                                                                                      }
-            
+          }
+      
