@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Bell, Book, Edit3, Save, Calendar, User, CheckCircle, AlertCircle, Sparkles, Lock, LogIn, Share2, MessageCircle, Copy } from 'lucide-react';
+import { Bell, Book, Edit3, Save, Calendar, User, CheckCircle, AlertCircle, Sparkles, Lock, LogIn } from 'lucide-react';
 
+// Konfigurasi Supabase Anda
 const SUPABASE_URL = 'https://czgmoblnjmlcxpnijnpi.supabase.co'; 
 const SUPABASE_KEY = 'Sb_publishable_HY7yoPZvIqM6FBMPkCo_TA_5bUeIE9K'; 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -26,24 +27,25 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data, error } = await supabase.from('Jadwal_kelas').select('*');
-        if (data && data.length > 0) {
-          const merged = { ...defaultData };
-          data.forEach(item => { merged[item.hari] = item.data; });
-          setScheduleData(merged);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-indigo-50 font-sans text-indigo-600 font-bold">Memuat Jadwal...</div>;
+  const fetchData = async () => {
+    try {
+      const { data, error } = await supabase.from('Jadwal_kelas').select('*');
+      if (data && data.length > 0) {
+        const merged = { ...defaultData };
+        data.forEach(item => { merged[item.hari] = item.data; });
+        setScheduleData(merged);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-indigo-50 font-sans text-indigo-600 font-bold">Memuat...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-24 font-sans">
@@ -66,7 +68,7 @@ export default function App() {
             <DayCard title="Besok" dayName={days[(currentDayIndex + 1) % 7]} data={scheduleData[days[(currentDayIndex + 1) % 7]]} isToday={false} />
           </div>
         ) : (
-          isAuthenticated ? <AdminPanel data={scheduleData} setData={setScheduleData} /> : <AdminLogin onLogin={() => setIsAuthenticated(true)} />
+          isAuthenticated ? <AdminPanel data={scheduleData} setData={setScheduleData} days={days} onSaveSuccess={fetchData} /> : <AdminLogin onLogin={() => setIsAuthenticated(true)} />
         )}
       </main>
     </div>
@@ -74,6 +76,7 @@ export default function App() {
 }
 
 function DayCard({ title, dayName, data, isToday }) {
+  if (!data) return null;
   return (
     <div className={`p-6 rounded-3xl shadow-lg ${isToday ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-100'}`}>
       <p className={`text-xs font-bold uppercase mb-1 ${isToday ? 'text-indigo-200' : 'text-indigo-500'}`}>{title}</p>
@@ -94,15 +97,22 @@ function DayCard({ title, dayName, data, isToday }) {
   );
 }
 
-function AdminPanel({ data, setData }) {
+function AdminPanel({ data, setData, days, onSaveSuccess }) {
   const [day, setDay] = useState('Senin');
   const [form, setForm] = useState(data['Senin']);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => { setForm(data[day]); }, [day, data]);
 
   const save = async () => {
+    setIsSaving(true);
     const { error } = await supabase.from('Jadwal_kelas').upsert({ hari: day, data: form }, { onConflict: 'hari' });
-    if (!error) { setData({ ...data, [day]: form }); alert('Berhasil!'); }
+    if (!error) {
+      setData({ ...data, [day]: form });
+      onSaveSuccess();
+      alert('Berhasil!');
+    }
+    setIsSaving(false);
   };
 
   return (
@@ -113,7 +123,9 @@ function AdminPanel({ data, setData }) {
       <input className="w-full p-4 bg-slate-50 rounded-xl" placeholder="Pelajaran (koma)" value={form.subjects.join(', ')} onChange={e => setForm({...form, subjects: e.target.value.split(',')})} />
       <input className="w-full p-4 bg-slate-50 rounded-xl" placeholder="Piket (koma)" value={form.picket.join(', ')} onChange={e => setForm({...form, picket: e.target.value.split(',')})} />
       <input className="w-full p-4 bg-slate-50 rounded-xl" placeholder="PR / Tugas" value={form.homework} onChange={e => setForm({...form, homework: e.target.value})} />
-      <button onClick={save} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">Simpan Publik</button>
+      <button onClick={save} disabled={isSaving} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">
+        {isSaving ? 'Menyimpan...' : 'Simpan Publik'}
+      </button>
     </div>
   );
 }
@@ -123,8 +135,11 @@ function AdminLogin({ onLogin }) {
   return (
     <div className="bg-white p-8 rounded-3xl shadow-xl text-center space-y-4 border border-slate-100">
       <h2 className="font-bold text-xl">Login Admin</h2>
-      <input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full p-4 bg-slate-50 rounded-xl text-center" placeholder="Password" />
-      <button onClick={() => p === 'TKJ2025' ? onLogin() : alert('Salah')} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold">Masuk</button>
+      <form onSubmit={(e) => { e.preventDefault(); p === 'TKJ2025' ? onLogin() : alert('Salah'); }}>
+        <input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full p-4 bg-slate-50 rounded-xl text-center mb-4" placeholder="Password" />
+        <button type="submit" className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold">Masuk</button>
+      </form>
     </div>
   );
-        }
+    }
+        
