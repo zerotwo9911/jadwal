@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Calendar, Save, Lock, LogIn, Book, User, Sparkles, AlertCircle } from 'lucide-react';
+import { Calendar, Save, Lock, LogIn, Book, User, Sparkles } from 'lucide-react';
 
 // --- KONFIGURASI SUPABASE ---
 const SUPABASE_URL = 'https://czgmoblnjmlcxpnijnpi.supabase.co'; 
-const SUPABASE_KEY = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6Z21vYmxuam1sY3hwbmlqbnBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2ODI1NTQsImV4cCI6MjA4NjI1ODU1NH0.3WH69MWJmiFGMpACOpTLR2WQHE0iU6GGcBH9fDvpmL0'; 
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6Z21vYmxuam1sY3hwbmlqbnBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2ODI1NTQsImV4cCI6MjA4NjI1ODU1NH0.3WH69MWJmiFGMpACOpTLR2WQHE0iU6GGcBH9fDvpmL0'; 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -21,7 +21,6 @@ export default function App() {
 
   const fetchData = async () => {
     try {
-      // Nama tabel disesuaikan menjadi 'Jadwal' sesuai dashboard terbaru
       const { data, error } = await supabase.from('Jadwal').select('*');
       if (data) {
         const dbMap = {};
@@ -97,13 +96,12 @@ function AdminPanel({ data, onSave }) {
 
   const handleUpdate = async () => {
     setSaving(true);
-    // Operasi upsert ke tabel 'Jadwal'
     const { error } = await supabase
       .from('Jadwal')
       .upsert({ hari: day, data: form }, { onConflict: 'hari' });
     
     if (!error) {
-      alert('Berhasil Update Cloud! Seluruh kelas akan melihat info terbaru.');
+      alert('Berhasil Update Cloud!');
       onSave();
     } else {
       alert('Gagal: ' + error.message);
@@ -113,7 +111,7 @@ function AdminPanel({ data, onSave }) {
 
   return (
     <div className="bg-white p-6 rounded-3xl shadow-xl space-y-4 border border-slate-100">
-      <h2 className="font-bold text-xl text-slate-800">Edit Jadwal Publik</h2>
+      <h2 className="font-bold text-xl text-slate-800">Edit Jadwal</h2>
       <select value={day} onChange={(e) => setDay(e.target.value)} className="w-full p-4 bg-slate-50 rounded-xl font-bold border-none outline-none ring-2 ring-indigo-50">
         {days.map(d => <option key={d} value={d}>{d}</option>)}
       </select>
@@ -121,7 +119,7 @@ function AdminPanel({ data, onSave }) {
       <input className="w-full p-4 bg-slate-50 rounded-xl outline-none" placeholder="Piket (koma)" value={form.picket.join(', ')} onChange={e => setForm({...form, picket: e.target.value.split(',')})} />
       <input className="w-full p-4 bg-slate-50 rounded-xl outline-none" placeholder="PR / Tugas" value={form.homework} onChange={e => setForm({...form, homework: e.target.value})} />
       <button onClick={handleUpdate} disabled={saving} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95">
-        {saving ? 'Sinkronisasi...' : 'Simpan ke Semua HP'}
+        {saving ? 'Sinkronisasi...' : 'Simpan ke Cloud'}
       </button>
     </div>
   );
@@ -132,17 +130,9 @@ function AdminLogin({ onLogin }) {
   return (
     <div className="bg-white p-8 rounded-3xl shadow-xl text-center space-y-4 border border-slate-100">
       <h2 className="font-bold text-xl text-slate-800">Login Admin</h2>
-      <p className="text-sm text-slate-500">Masukkan password (TKJ2025) untuk akses edit.</p>
-      <input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full p-4 bg-slate-50 rounded-xl text-center font-bold tracking-widest border-2 border-slate-50 focus:border-indigo-100 outline-none" placeholder="••••••••" />
-      <button onClick={() => p === 'TKJ2025' ? onLogin() : alert('Password Salah!')} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all">Masuk</button>
+      <input type="password" value={p} onChange={e => setP(e.target.value)} className="w-full p-4 bg-slate-50 rounded-xl text-center font-bold tracking-widest border-none outline-none" placeholder="••••••••" />
+      <button onClick={() => p === 'TKJ2025' ? onLogin() : alert('Password Salah!')} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg">Masuk</button>
     </div>
   );
-}
-ounded-xl text-center font-bold tracking-widest border-none" autoFocus />
-        <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 hover:bg-slate-800 transition-all shadow-lg"><LogIn size={18} /> Masuk</button>
-      </form>
-    </div>
-  );
-}
-  
-
+                                                                                                          }
+      
